@@ -1,0 +1,200 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-CUI - Zapytaj Bielika</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            display: flex;
+            flex-direction: row;
+            background: white;
+            width: 90%;
+            max-width: 1200px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+        .logo-container {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            width: 30%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: white;
+        }
+        .logo-container img {
+            width: 80%;
+            border-radius: 50%;
+            border: 5px solid white;
+        }
+        .logo-container h3 {
+            margin-top: 20px;
+            text-transform: uppercase;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .query-container {
+            width: 70%;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        .query-container h2 {
+            text-align: center;
+            color: #333;
+            font-size: 26px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .query-container textarea {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            resize: none;
+            margin-bottom: 20px;
+            height: 120px;
+            box-sizing: border-box;
+        }
+        .query-container button {
+            background-color: #007bff;
+            color: white;
+            padding: 15px;
+            font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+        .query-container button:hover {
+            background-color: #0056b3;
+        }
+        .history-container {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            background-color: #f8f9fa;
+        }
+        .history-container h3 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 22px;
+        }
+        .history-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        .history-item p {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        .history-item strong {
+            color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo-container">
+            <img src="{% static 'images/cui_bielik_logo.jpg' %}" alt="Logo Bielik">
+            <h3>Bielik CUI Wrocław</h3>
+        </div>
+        <div class="query-container">
+            <h2>Masz pytanie - AI CUI Wrocław</h2>
+            <form id="ask-form">
+                <textarea id="user-message" placeholder="Wpisz swoje pytanie..."></textarea>
+                <button type="button" id="send-button">Wyślij zapytanie</button>
+            </form>
+            <div class="history-container" id="history-container">
+                <h3>Historia:</h3>
+                {% for item in history %}
+                <div class="history-item">
+                    <p><strong>Pytanie:</strong> {{ item.question }}</p>
+                    <p><strong>Odpowiedź:</strong> <span class="response">{{ item.answer|safe }}</span></p>
+                    <p><small><strong>Data:</strong> {{ item.date }}</small></p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <script>
+        function typeWriter(text, container) {
+            let i = 0;
+            container.innerHTML = ""; // Wyczyść poprzednią odpowiedź
+            function type() {
+                if (i < text.length) {
+                    container.innerHTML += text.charAt(i);
+                    i++;
+                    setTimeout(type, 50); // Prędkość pisania
+                }
+            }
+            type();
+        }
+
+        document.getElementById('send-button').addEventListener('click', function () {
+            const userMessage = document.getElementById('user-message').value;
+
+            fetch('/accounts/ask_bielik/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: userMessage }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.reply) {
+                    const historyContainer = document.getElementById('history-container');
+
+                    // Utwórz nowy element dla historii
+                    const newItem = document.createElement('div');
+                    newItem.classList.add('history-item');
+                    newItem.innerHTML = `
+                        <p><strong>Pytanie:</strong> ${userMessage}</p>
+                        <p><strong>Odpowiedź:</strong> <span id="live-response"></span></p>
+                    `;
+                    historyContainer.appendChild(newItem);
+
+                    // Uruchom pisanie litera po literze
+                    const liveResponseContainer = document.getElementById('live-response');
+                    typeWriter(data.reply, liveResponseContainer);
+
+                    // Automatyczne przewijanie na dół
+                    historyContainer.scrollTop = historyContainer.scrollHeight;
+                } else {
+                    alert(`Błąd: ${data.error}`);
+                }
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const historyContainer = document.querySelector('.history-container');
+            historyContainer.scrollTop = historyContainer.scrollHeight;
+        });
+    </script>
+</body>
+</html>
